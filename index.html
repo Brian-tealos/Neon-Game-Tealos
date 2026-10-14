@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#05070e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Neon Void: Rogue Survivor - 2D Bullet Hell Arcade</title>
+    <meta name="description" content="Un frenético juego de supervivencia espacial 2D en JavaScript con Canvas, físicas, efectos de partículas neón y sonido procedural sintetizado.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-wrapper">
+        <!-- Canvas principal donde se dibuja el juego -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- HUD Superior: Datos en vivo durante la partida -->
+        <div id="hud" class="hud-overlay hidden">
+            <div class="hud-top">
+                <!-- Estado del Jugador (Escudo y Vida) -->
+                <div class="hud-player-status">
+                    <div class="status-bars">
+                        <div class="bar-container shield-container">
+                            <span class="bar-label">ESCUDO</span>
+                            <div class="bar-outer">
+                                <div id="shield-bar" class="bar-inner shield-fill" style="width: 100%;"></div>
+                            </div>
+                            <span id="shield-text" class="bar-val">100/100</span>
+                        </div>
+                        <div class="bar-container health-container">
+                            <span class="bar-label">CASCO</span>
+                            <div class="bar-outer">
+                                <div id="health-bar" class="bar-inner health-fill" style="width: 100%;"></div>
+                            </div>
+                            <span id="health-text" class="bar-val">100/100</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Oleada & Tiempo -->
+                <div class="hud-center">
+                    <div class="wave-badge" id="wave-display">OLEADA 1</div>
+                    <div class="time-display" id="time-display">00:00</div>
+                    <div id="boss-health-container" class="boss-health-bar hidden">
+                        <div class="boss-label" id="boss-name">TITÁN DEL VACÍO</div>
+                        <div class="boss-bar-outer">
+                            <div id="boss-bar-fill" class="boss-bar-fill" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Puntuación & Combo -->
+                <div class="hud-stats">
+                    <div class="score-box">
+                        <span class="stat-label">PUNTUACIÓN</span>
+                        <span id="score-display" class="stat-value">0</span>
+                    </div>
+                    <div class="combo-box" id="combo-box">
+                        <span id="combo-display" class="combo-val">x1.0</span>
+                        <div class="combo-timer-bar">
+                            <div id="combo-timer-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HUD Inferior: Bombas y Armas Especiales -->
+            <div class="hud-bottom">
+                <div class="special-abilities">
+                    <div class="ability-slot" id="bomb-slot">
+                        <span class="key-hint">ESPACIO</span>
+                        <span class="ability-name">PULSO EMP</span>
+                        <div class="charge-counter" id="bomb-charges">● ●</div>
+                    </div>
+                    <div class="ability-slot" id="dash-slot">
+                        <span class="key-hint">SHIFT / CLICK DER</span>
+                        <span class="ability-name">HIPER-DASH</span>
+                        <div class="cooldown-overlay" id="dash-cooldown"></div>
+                    </div>
+                </div>
+                <div class="xp-level-bar-container">
+                    <div class="level-badge" id="player-level">NV 1</div>
+                    <div class="xp-outer">
+                        <div id="xp-bar" class="xp-inner" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de Inicio / Menú Principal -->
+        <div id="start-screen" class="menu-overlay active">
+            <div class="menu-card glass-panel">
+                <div class="brand-tag">ARCADE EXPERIMENTAL • JAVASCRIPT CANVAS</div>
+                <h1 class="game-title">NEON<span class="glow-accent">VOID</span></h1>
+                <p class="game-subtitle">Supervivencia Táctica en el Vacío Infinito</p>
+                <p class="rotate-tip touch-only">📱 Mejor experiencia con el teléfono en horizontal</p>
+
+                <div class="high-score-tag">
+                    <span>RÉCORD HISTÓRICO:</span>
+                    <strong id="menu-high-score">0</strong>
+                </div>
+
+                <div class="menu-buttons">
+                    <button id="btn-start" class="btn-neon primary">INICIAR MISIÓN</button>
+                    <button id="btn-how" class="btn-neon secondary">CÓMO JUGAR</button>
+                </div>
+
+                <div class="quick-settings">
+                    <button id="btn-toggle-sound" class="btn-icon" title="Sonido">🔊 SONIDO: ON</button>
+                    <button id="btn-toggle-music" class="btn-icon" title="Música sintetizada">🎵 BGM: ON</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Instrucciones -->
+        <div id="instructions-modal" class="modal-overlay hidden">
+            <div class="modal-card glass-panel">
+                <h2 class="modal-title">SISTEMAS DE CONTROL</h2>
+                <div class="controls-grid">
+                    <div class="control-item kb-only">
+                        <div class="key-badge">W A S D / Flechas</div>
+                        <span>Propulsión & Movimiento</span>
+                    </div>
+                    <div class="control-item kb-only">
+                        <div class="key-badge">Ratón</div>
+                        <span>Apuntar Nave / Dirección</span>
+                    </div>
+                    <div class="control-item kb-only">
+                        <div class="key-badge">Click Izq / Auto</div>
+                        <span>Disparar Armamento</span>
+                    </div>
+                    <div class="control-item kb-only">
+                        <div class="key-badge">Espacio</div>
+                        <span>Bomba EMP (Limpia Proyectiles)</span>
+                    </div>
+                    <div class="control-item kb-only">
+                        <div class="key-badge">Shift / Click Der</div>
+                        <span>Dash de Evasión (Invulnerable)</span>
+                    </div>
+                    <div class="control-item touch-only">
+                        <div class="key-badge">Joystick izquierdo</div>
+                        <span>Mover la nave</span>
+                    </div>
+                    <div class="control-item touch-only">
+                        <div class="key-badge">Joystick derecho</div>
+                        <span>Apuntar y disparar (mantenlo inclinado)</span>
+                    </div>
+                    <div class="control-item touch-only">
+                        <div class="key-badge">Botón DASH</div>
+                        <span>Evasión invulnerable</span>
+                    </div>
+                    <div class="control-item touch-only">
+                        <div class="key-badge">Botón EMP</div>
+                        <span>Bomba que limpia proyectiles</span>
+                    </div>
+                </div>
+
+                <div class="tips-box">
+                    <strong>CONSEJOS:</strong>
+                    <ul>
+                        <li>Recoge los cristales neón de los enemigos caídos para subir de nivel.</li>
+                        <li>El combo aumenta si destruyes enemigos seguidos sin recibir daño.</li>
+                        <li>Cada 5 oleadas te enfrentarás a un Jefe Destructor con patrones radiales.</li>
+                    </ul>
+                </div>
+
+                <button id="btn-close-how" class="btn-neon secondary full-width">ENTENDIDO</button>
+            </div>
+        </div>
+
+        <!-- Modal de Nivel / Selección de Mejora (Roguelite) -->
+        <div id="upgrade-modal" class="modal-overlay hidden">
+            <div class="modal-card upgrade-card glass-panel">
+                <div class="level-up-tag">¡SISTEMAS MEJORADOS!</div>
+                <h2 class="modal-title">SELECCIONA UN MÓDULO TECNOLÓGICO</h2>
+                <p class="select-desc">Elige una mejora para tu nave de combate:</p>
+                
+                <div id="upgrade-options-container" class="upgrade-grid">
+                    <!-- Tarjetas generadas dinámicamente por JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de Game Over -->
+        <div id="game-over-screen" class="menu-overlay hidden">
+            <div class="menu-card glass-panel game-over-card">
+                <div class="danger-tag">NAVE DESTRUIDA</div>
+                <h1 class="game-title defeat">MISIÓN<span class="glow-red">FALLIDA</span></h1>
+                
+                <div class="stats-summary">
+                    <div class="summary-row">
+                        <span>Puntuación Final:</span>
+                        <strong id="final-score">0</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>Oleadas Sobrevividas:</span>
+                        <strong id="final-waves">0</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>Enemigos Aniquilados:</span>
+                        <strong id="final-kills">0</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>Nivel Tecnológico:</span>
+                        <strong id="final-level">1</strong>
+                    </div>
+                    <div class="summary-row highlight">
+                        <span>Nuevo Récord:</span>
+                        <strong id="new-record-label">NO</strong>
+                    </div>
+                </div>
+
+                <div class="menu-buttons">
+                    <button id="btn-restart" class="btn-neon primary">REINTENTAR</button>
+                    <button id="btn-menu" class="btn-neon secondary">MENÚ PRINCIPAL</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notificaciones Flotantes y Pausa -->
+        <div id="pause-screen" class="menu-overlay hidden">
+            <div class="menu-card glass-panel pause-card">
+                <h2 class="modal-title">MISIÓN EN PAUSA</h2>
+                <p>Presiona <kbd class="kb-only">ESC</kbd><span class="kb-only"> o </span>el botón para continuar</p>
+                <button id="btn-resume" class="btn-neon primary">CONTINUAR</button>
+                <button id="btn-quit" class="btn-neon secondary">ABANDONAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script del Juego Autocontenido (compatible con doble clic directo y servidores) -->
+    <script src="js/game.bundle.js"></script>
+    <!-- Controles táctiles para móviles / Android (se activa solo en pantallas táctiles) -->
+    <script src="js/mobile.js"></script>
+</body>
+</html>
