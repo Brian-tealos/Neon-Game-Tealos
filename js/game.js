@@ -296,11 +296,11 @@ export class Game {
 
         // Generar enemigos periódicamente
         this.spawnTimer += dt;
-        const spawnInterval = Math.max(0.6, 2.2 - this.wave * 0.12);
+        const spawnInterval = Math.max(0.6, 2.2 - this.wave * 0.12) * (this.isBossWave ? 2.2 : 1);
 
         if (this.spawnTimer >= spawnInterval) {
             this.spawnTimer = 0;
-            const maxEnemies = 10 + this.wave * 3;
+            const maxEnemies = this.isBossWave ? 6 : 10 + this.wave * 3; // menos enemigos extra durante el jefe
             if (this.enemies.length < maxEnemies) {
                 this.spawnEnemy();
             }

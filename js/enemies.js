@@ -201,6 +201,11 @@ export class BossTitan {
         this.spiralAngle = 0;
         this.attackTimer = 0;
         this.attackPhase = 0; // 0: Espiral, 1: Anillo radial, 2: Ráfaga dirigida
+        this.tier = Math.max(1, Math.floor(wave / 5)); // 1 = primer jefe
+        this.graceTimer = 2.0; // segundos de entrada sin disparar
+        this.restTimer = 0;
+        this.fireTimer = 0;
+        this.ringsFired = 0;
         this.flashTimer = 0;
     }
 
@@ -223,73 +228,103 @@ export class BossTitan {
         this.x += (targetX - this.x) * 1.5 * dt;
         this.y += (targetY - this.y) * 1.5 * dt;
 
-        this.attackTimer += dt;
         this.spiralAngle += 4.5 * dt;
 
-        // Cambiar fase de ataque cada 4.5 segundos
+        // Entrada del jefe: no dispara hasta estar en posición
+        if (this.graceTimer > 0) {
+            this.graceTimer -= dt;
+            return;
+        }
+
+        // Respiro breve entre una fase de ataque y la siguiente
+        if (this.restTimer > 0) {
+            this.restTimer -= dt;
+            return;
+        }
+
+        this.attackTimer += dt;
         if (this.attackTimer > 4.5) {
             this.attackTimer = 0;
             this.attackPhase = (this.attackPhase + 1) % 3;
+            this.fireTimer = 0;
+            this.ringsFired = 0;
+            this.restTimer = 0.9;
+            return;
         }
 
-        // Ejecutar patrón según fase de ataque
+        // Dificultad según el número de jefe: el primero (tier 1) es el más suave
+        const tier = this.tier;
+        if (this.fireTimer > 0) this.fireTimer -= dt;
+
         if (this.attackPhase === 0) {
-            // Patrón 1: Espiral Bullet-Hell continuo
-            if (Math.random() < 0.28) {
+            // Patrón 1: espiral con ritmo fijo (no depende de los FPS de la pantalla)
+            if (this.fireTimer <= 0) {
+                this.fireTimer = Math.max(0.14, 0.26 - 0.03 * (tier - 1));
                 sounds.playLaser(0.6);
-                const arms = 3;
+                const arms = tier >= 3 ? 3 : 2;
+                const speed = Math.min(260, 190 + 20 * (tier - 1));
+                const dmg = Math.min(18, 12 + 2 * (tier - 1));
                 for (let a = 0; a < arms; a++) {
                     const ang = this.spiralAngle + (a * Math.PI * 2) / arms;
                     projectiles.push(
                         new Bullet({
                             x: this.x,
                             y: this.y,
-                            vx: Math.cos(ang) * 260,
-                            vy: Math.sin(ang) * 260,
+                            vx: Math.cos(ang) * speed,
+                            vy: Math.sin(ang) * speed,
                             radius: 5,
                             color: '#ff006e',
-                            damage: 18,
+                            damage: dmg,
                             isPlayer: false
                         })
                     );
                 }
             }
         } else if (this.attackPhase === 1) {
-            // Patrón 2: Anillo expansivo de proyectiles en intervalos
-            if (this.attackTimer >= 1.4 && this.attackTimer <= 1.45) {
+            // Patrón 2: anillos expansivos (1 anillo en el primer jefe, 2 desde el segundo)
+            const ringTimes = [1.2, 2.8];
+            const maxRings = tier >= 2 ? 2 : 1;
+            if (this.ringsFired < maxRings && this.attackTimer >= ringTimes[this.ringsFired]) {
                 sounds.playPlasma();
-                const totalBullets = 18;
+                const totalBullets = Math.min(20, 12 + 2 * (tier - 1));
+                const offset = (this.ringsFired * Math.PI) / totalBullets; // el 2.º anillo deja huecos distintos
+                const speed = Math.min(290, 190 + 25 * (tier - 1));
+                const dmg = Math.min(22, 15 + 2 * (tier - 1));
                 for (let i = 0; i < totalBullets; i++) {
-                    const ang = (i * Math.PI * 2) / totalBullets;
+                    const ang = offset + (i * Math.PI * 2) / totalBullets;
                     projectiles.push(
                         new Bullet({
                             x: this.x,
                             y: this.y,
-                            vx: Math.cos(ang) * 290,
-                            vy: Math.sin(ang) * 290,
+                            vx: Math.cos(ang) * speed,
+                            vy: Math.sin(ang) * speed,
                             radius: 6,
                             color: '#9d4edd',
-                            damage: 22,
+                            damage: dmg,
                             isPlayer: false
                         })
                     );
                 }
+                this.ringsFired++;
             }
         } else if (this.attackPhase === 2) {
-            // Patrón 3: Ráfaga enfocada al jugador con dispersión
-            if (Math.random() < 0.15) {
+            // Patrón 3: disparos apuntados al jugador con algo de dispersión
+            if (this.fireTimer <= 0) {
+                this.fireTimer = Math.max(0.3, 0.6 - 0.06 * (tier - 1));
                 sounds.playLaser(0.8);
                 const toPlayer = Math.atan2(player.y - this.y, player.x - this.x);
-                const spread = (Math.random() - 0.5) * 0.4;
+                const spread = (Math.random() - 0.5) * 0.35;
+                const speed = Math.min(420, 290 + 25 * (tier - 1));
+                const dmg = Math.min(25, 15 + 3 * (tier - 1));
                 projectiles.push(
                     new Bullet({
                         x: this.x,
                         y: this.y,
-                        vx: Math.cos(toPlayer + spread) * 420,
-                        vy: Math.sin(toPlayer + spread) * 420,
+                        vx: Math.cos(toPlayer + spread) * speed,
+                        vy: Math.sin(toPlayer + spread) * speed,
                         radius: 5.5,
                         color: '#ffbe0b',
-                        damage: 25,
+                        damage: dmg,
                         isPlayer: false
                     })
                 );
